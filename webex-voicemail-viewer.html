@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webex Voicemail Viewer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  header {
+    margin-bottom: 1.75rem;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 500;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: #666;
+  }
+
+  header a {
+    color: #185fa5;
+    text-decoration: none;
+  }
+
+  header a:hover { text-decoration: underline; }
+
+  .token-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .token-bar input {
+    flex: 1;
+    font-size: 13px;
+    font-family: monospace;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #1a1a1a;
+    min-width: 0;
+  }
+
+  .token-bar input::placeholder { color: #aaa; }
+
+  .token-bar button {
+    background: #185fa5;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 0 16px;
+    height: 34px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .token-bar button:hover { background: #0c447c; }
+  .token-bar button:disabled { background: #aaa; cursor: not-allowed; }
+
+  .status {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 1rem;
+    min-height: 18px;
+  }
+
+  .status.err { color: #a32d2d; }
+  .status.ok { color: #3b6d11; }
+
+  .summary-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+
+  .stat {
+    flex: 1;
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .filter-row label {
+    font-size: 13px;
+    color: #666;
+  }
+
+  .filter-row select {
+    font-size: 13px;
+    padding: 4px 8px;
+    border: 0.5px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #1a1a1a;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .vm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .vm-card {
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .vm-card:hover { border-color: #bbb; }
+
+  .vm-card.unread {
+    border-left: 3px solid #185fa5;
+  }
+
+  .vm-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .vm-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e6f1fb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #185fa5;
+    flex-shrink: 0;
+  }
+
+  .vm-meta { flex: 1; min-width: 0; }
+
+  .vm-caller {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .vm-time {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  .vm-dur {
+    font-size: 12px;
+    color: #aaa;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #e6f1fb;
+    color: #185fa5;
+    font-weight: 400;
+  }
+
+  .vm-body {
+    display: none;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 0.5px solid #eee;
+  }
+
+  .vm-body.open { display: block; }
+
+  .transcript-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #aaa;
+    margin-bottom: 6px;
+  }
+
+  .transcript-text {
+    font-size: 13px;
+    color: #444;
+    line-height: 1.65;
+    margin-bottom: 0.75rem;
+  }
+
+  .transcript-text.muted {
+    font-style: italic;
+    color: #aaa;
+  }
+
+  .vm-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .vm-actions button {
+    font-size: 12px;
+    padding: 0 12px;
+    height: 30px;
+    border: 0.5px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #1a1a1a;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .vm-actions button:hover { background: #f5f5f5; }
+
+  .vm-actions button.danger {
+    color: #a32d2d;
+    border-color: #f0c0c0;
+  }
+
+  .vm-actions button.danger:hover { background: #fcebeb; }
+
+  .empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+    font-size: 14px;
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 10px;
+  }
+
+  .chevron {
+    font-size: 11px;
+    color: #bbb;
+    margin-left: auto;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+
+  .chevron.open { transform: rotate(180deg); }
+
+  footer {
+    margin-top: 2rem;
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Webex Voicemail Viewer</h1>
+    <p>Get your personal access token from <a href="https://developer.webex.com/docs/getting-started" target="_blank">developer.webex.com</a> — scroll down, click your name, copy the token. Valid for 12 hours.</p>
+  </header>
+
+  <div class="token-bar">
+    <input type="password" id="tokenInput" placeholder="Paste your Webex personal access token..." />
+    <button id="loadBtn" onclick="loadVoicemails()">Load voicemails</button>
+  </div>
+
+  <div id="status" class="status"></div>
+  <div id="summaryRow" class="summary-row" style="display:none"></div>
+  <div id="filterRow" class="filter-row" style="display:none"></div>
+  <div id="vmList" class="vm-list"></div>
+
+  <footer>Webex Voicemail Viewer &mdash; data fetched directly from the Webex API. Nothing is stored or transmitted anywhere else.</footer>
+
+</div>
+
+<script>
+  let allMessages = [];
+
+  function initials(name) {
+    if (!name) return '?';
+    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  function formatDur(secs) {
+    if (!secs && secs !== 0) return '';
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return m > 0 ? m + 'm ' + s + 's' : s + 's';
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / 86400000);
+    const timeStr = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    if (diffDays === 0) return 'Today · ' + timeStr;
+    if (diffDays === 1) return 'Yesterday · ' + timeStr;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: diffDays > 300 ? 'numeric' : undefined }) + ' · ' + timeStr;
+  }
+
+  async function fetchTranscripts(token, headers) {
+    await Promise.all(allMessages.map(async function(m) {
+      try {
+        const res = await fetch('https://webexapis.com/v1/telephony/voiceMessages/' + encodeURIComponent(m.id) + '/transcript', { headers });
+        if (res.ok) {
+          const data = await res.json();
+          m.transcription = { status: data.status || 'READY', transcript: data.transcript || data.text || '' };
+        } else if (res.status === 404) {
+          m.transcription = { status: 'NA', transcript: '' };
+        }
+      } catch(e) {
+        m.transcription = { status: 'NA', transcript: '' };
+      }
+    }));
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  async function loadVoicemails() {
+    const token = document.getElementById('tokenInput').value.trim();
+    if (!token) { setStatus('Please paste your personal access token first.', 'err'); return; }
+
+    const btn = document.getElementById('loadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    setStatus('Fetching voicemails from Webex...');
+
+    try {
+      const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+      const [summaryRes, msgRes] = await Promise.all([
+        fetch('https://webexapis.com/v1/telephony/voiceMessages/summary', { headers }),
+        fetch('https://webexapis.com/v1/telephony/voiceMessages', { headers })
+      ]);
+
+      if (!msgRes.ok) {
+        if (msgRes.status === 401) throw new Error('Invalid or expired token. Generate a fresh one at developer.webex.com.');
+        if (msgRes.status === 403) throw new Error('Access denied. Confirm that Webex Calling voicemail is enabled for your account.');
+        if (msgRes.status === 404) throw new Error('Voicemail not found. Your account may not have Webex Calling voicemail enabled.');
+        const errData = await msgRes.json().catch(() => ({}));
+        throw new Error('API error ' + msgRes.status + (errData.message ? ': ' + errData.message : '') + '.');
+      }
+
+      const summaryData = summaryRes.ok ? await summaryRes.json() : null;
+      const msgData = await msgRes.json();
+      allMessages = msgData.items || [];
+
+      renderSummary(summaryData);
+      renderFilter();
+      renderList(allMessages);
+      setStatus(allMessages.length + ' voicemail' + (allMessages.length !== 1 ? 's' : '') + ' loaded. Fetching transcripts...', 'ok');
+
+      await fetchTranscripts(token, headers);
+      renderList(allMessages);
+      setStatus(allMessages.length + ' voicemail' + (allMessages.length !== 1 ? 's' : '') + ' loaded.', 'ok');
+
+    } catch (e) {
+      if (e.name === 'TypeError' && e.message.includes('fetch')) {
+        setStatus('Network error — check your internet connection and that webexapis.com is not blocked.', 'err');
+      } else {
+        setStatus(e.message, 'err');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Reload';
+    }
+  }
+
+  function renderSummary(data) {
+    const row = document.getElementById('summaryRow');
+    if (!data) { row.style.display = 'none'; return; }
+    const total = (data.newMessages || 0) + (data.oldMessages || 0);
+    row.innerHTML =
+      '<div class="stat"><div class="stat-label">Total</div><div class="stat-value">' + total + '</div></div>' +
+      '<div class="stat"><div class="stat-label">Unread</div><div class="stat-value">' + (data.newMessages || 0) + '</div></div>' +
+      '<div class="stat"><div class="stat-label">Read</div><div class="stat-value">' + (data.oldMessages || 0) + '</div></div>';
+    row.style.display = 'flex';
+  }
+
+  function renderFilter() {
+    const row = document.getElementById('filterRow');
+    row.style.display = 'flex';
+    row.innerHTML =
+      '<label>Show:</label>' +
+      '<select id="filterSel" onchange="applyFilter()">' +
+      '<option value="all">All voicemails</option>' +
+      '<option value="unread">Unread only</option>' +
+      '<option value="read">Read only</option>' +
+      '</select>';
+  }
+
+  function applyFilter() {
+    const val = document.getElementById('filterSel').value;
+    let msgs = allMessages;
+    if (val === 'unread') msgs = allMessages.filter(function(m) { return !m.read; });
+    if (val === 'read') msgs = allMessages.filter(function(m) { return m.read; });
+    renderList(msgs);
+  }
+
+  function getTranscriptHTML(m) {
+    if (!m.transcription) return '<p class="transcript-text muted">No transcript available.</p>';
+    if (m.transcription.status === 'READY' && m.transcription.transcript) {
+      return '<p class="transcript-text">' + escHtml(m.transcription.transcript) + '</p>';
+    }
+    if (m.transcription.status === 'PENDING') return '<p class="transcript-text muted">Transcription in progress\u2026</p>';
+    if (m.transcription.status === 'FAILURE') return '<p class="transcript-text muted">Transcription unavailable for this message.</p>';
+    if (m.transcription.status === 'NA') return '<p class="transcript-text muted">Transcription is not enabled for your account.</p>';
+    return '<p class="transcript-text muted">No transcript available.</p>';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderList(messages) {
+    const list = document.getElementById('vmList');
+    if (!messages.length) {
+      list.innerHTML = '<div class="empty">No voicemails to display.</div>';
+      return;
+    }
+    list.innerHTML = messages.map(function(m, i) {
+      const caller = (m.callingParty && (m.callingParty.name || m.callingParty.number)) || 'Unknown caller';
+      const number = m.callingParty && m.callingParty.number ? m.callingParty.number : '';
+      const unread = !m.read;
+      return '<div class="vm-card' + (unread ? ' unread' : '') + '" id="card-' + i + '">' +
+        '<div class="vm-header" onclick="toggleCard(' + i + ')">' +
+          '<div class="vm-avatar">' + escHtml(initials(caller)) + '</div>' +
+          '<div class="vm-meta">' +
+            '<div class="vm-caller">' + escHtml(caller) + (unread ? '<span class="badge">New</span>' : '') + '</div>' +
+            '<div class="vm-time">' + formatTime(m.created) + '</div>' +
+          '</div>' +
+          '<div class="vm-dur">' + formatDur(m.duration) + '</div>' +
+          '<span class="chevron" id="chev-' + i + '">&#9660;</span>' +
+        '</div>' +
+        '<div class="vm-body" id="body-' + i + '">' +
+          '<div class="transcript-label">Transcript</div>' +
+          getTranscriptHTML(m) +
+          '<div class="vm-actions">' +
+            (number ? '<button onclick="callBack(\'' + escHtml(number) + '\')">Call back</button>' : '') +
+            (unread ? '<button onclick="markRead(event,' + i + ',\'' + escHtml(m.id) + '\')">Mark as read</button>' : '') +
+            '<button class="danger" onclick="deleteMsg(event,' + i + ',\'' + escHtml(m.id) + '\')">Delete</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function toggleCard(i) {
+    const body = document.getElementById('body-' + i);
+    const chev = document.getElementById('chev-' + i);
+    body.classList.toggle('open');
+    chev.classList.toggle('open');
+  }
+
+  function callBack(number) {
+    window.location.href = 'tel:' + number;
+  }
+
+  async function markRead(e, i, msgId) {
+    e.stopPropagation();
+    const token = document.getElementById('tokenInput').value.trim();
+    try {
+      const res = await fetch('https://webexapis.com/v1/telephony/voiceMessages/read', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: msgId })
+      });
+      if (res.ok) {
+        allMessages[i].read = true;
+        applyFilter();
+      }
+    } catch(err) {
+      setStatus('Could not mark as read. Try again.', 'err');
+    }
+  }
+
+  async function deleteMsg(e, i, msgId) {
+    e.stopPropagation();
+    if (!confirm('Delete this voicemail? This cannot be undone.')) return;
+    const token = document.getElementById('tokenInput').value.trim();
+    try {
+      const res = await fetch('https://webexapis.com/v1/telephony/voiceMessages/' + encodeURIComponent(msgId), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok || res.status === 204) {
+        allMessages.splice(i, 1);
+        applyFilter();
+        setStatus('Voicemail deleted.', 'ok');
+      }
+    } catch(err) {
+      setStatus('Could not delete voicemail. Try again.', 'err');
+    }
+  }
+
+  document.getElementById('tokenInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loadVoicemails();
+  });
+</script>
+</body>
+</html>
