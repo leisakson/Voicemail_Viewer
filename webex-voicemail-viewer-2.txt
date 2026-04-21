@@ -1,0 +1,6 @@
+Webex Voicemail Viewer
+Get your personal access token from developer.webex.com — scroll down, click your name, copy the token. Valid for 12 hours.
+
+Load voicemails
+
+Webex Voicemail Viewer — data fetched directly from the Webex API. Nothing is stored or transmitted anywhere else.
